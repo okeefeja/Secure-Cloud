@@ -1,6 +1,8 @@
 from boxsdk import OAuth2
 from boxsdk import Client
 from urllib.parse import urlparse, parse_qs
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import padding
 
 def uploadFile(fileName):
     oauth = OAuth2(
@@ -28,3 +30,26 @@ def uploadFile(fileName):
     shared_folder = client.folder('202433136302')
 
     uploaded_file = shared_folder.upload(fileName)
+
+def encryptFile(fileName, public_key):
+    # Open the file to be encrypted
+    with open(fileName, 'rb') as f:
+        plaintext = f.read()
+
+    # Encrypt the file using the RSA public key
+    ciphertext = public_key.encrypt(
+        plaintext,
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None
+        )
+    )
+
+    # Save the encrypted file to disk
+    with open(f'cipher_{fileName}', 'wb') as f:
+        f.write(ciphertext)
+
+    uploadFile(f'cipher_{fileName}')
+
+    print(f"Successfully uploaded the encryption of {fileName} to Box")
