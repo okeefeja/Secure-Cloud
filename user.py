@@ -4,6 +4,8 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
 from datetime import datetime, timedelta
 from cryptography.hazmat.primitives import serialization
+import base64
+from cryptography.hazmat.primitives.serialization import load_der_private_key
 
 class User:
     def __init__(self, name, email):
@@ -48,17 +50,30 @@ class User:
             encryption_algorithm=serialization.NoEncryption()
         )
 
-        private_key = serialization.load_pem_private_key(
-            private_key_bytes,
-            password=None
-        )
+        # private_key = serialization.load_pem_private_key(
+        #     private_key_bytes,
+        #     password=None
+        # )
 
         # Write the email and private key to a local text file as a tuple
-        with open('keys.txt', 'a') as f:
+        #with open('keys.txt', 'a') as f:
+        with open(f'{self.email}_key', 'a') as f:
 
             # Might have to fix as will probably add multiple private keys
             # file_contents = f.read()
             # if len(file_contents) > 0:
             #     f.truncate(0)
             
-            f.write(f'({self.email}, {private_key_bytes.decode("utf-8")}),\n')
+            #f.write(f'({self.email}\n{private_key_bytes.decode("utf-8")})\n')
+            # f.write(f'({self.email}\n{private_key_bytes})\n')
+            f.write(private_key_bytes.decode())
+
+    
+def getPrivateKey(userEmail):
+    with open(f'{userEmail}_key', "rb") as key_file:
+        private_key = serialization.load_pem_private_key(
+            key_file.read(),
+            password=None,
+        )
+
+    return private_key
