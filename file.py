@@ -97,3 +97,24 @@ def downloadFile(fileName):
             print(f"Downloaded {fileName}")
     else:
         print(f"File {fileName} not found in the shared folder.")
+
+
+def decryptFile(fileName, private_key):
+    with open(fileName, "rb") as data_file:
+        encrypted_data = data_file.read()
+
+    # Decrypt data
+    decrypted_data = private_key.decrypt(
+        encrypted_data,
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None
+        )
+    )
+
+    # Save the decrypted file to disk
+    with open(f'decrypted_{fileName}', 'wb') as f:
+        f.write(decrypted_data)
+    
+    print(f"Successfully decrypted the file {fileName}")
