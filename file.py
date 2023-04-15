@@ -2,38 +2,10 @@ import boxsdk
 from boxsdk import OAuth2
 from boxsdk import Client
 from urllib.parse import urlparse, parse_qs
-from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 
-def uploadFile(fileName):
-    oauth = OAuth2(
-        client_id='pu0jbhsntz9p4s4uimbppue1tw4pengw',
-        client_secret='fSwjHzheuKqV5qU2kap4Z70Fu5qCnhXX',
-    )
-
-    auth_url, csrf_token = oauth.get_authorization_url('https://app.box.com/box/callback')
-
-    # Redirect the user to the auth_url
-    print(f'Please visit the following URL to authorize your application: {auth_url}')
-
-    # Get the redirect URL that the user was redirected to after authorizing your application
-    redirect_url = input('Paste the redirect URL here: ')
-
-    # Parse the redirect URL to extract the authorization code
-    url_parts = urlparse(redirect_url)
-    query_params = parse_qs(url_parts.query)
-    auth_code = query_params['code'][0] 
-
-    access_token, refresh_token = oauth.authenticate(auth_code)
-
-    client = Client(oauth)
-
-    shared_folder = client.folder('202433136302')
-
-    uploaded_file = shared_folder.upload(fileName)
-
-
-def encryptFile(fileName, public_key):
+def encryptFile(fileName, sharedFolder, public_key):
     # Open the file to be encrypted
     with open(fileName, 'rb') as f:
         plaintext = f.read()
@@ -52,37 +24,13 @@ def encryptFile(fileName, public_key):
     with open(f'cipher_{fileName}', 'wb') as f:
         f.write(ciphertext)
 
-    uploadFile(f'cipher_{fileName}')
+    sharedFolder.upload(f'cipher_{fileName}')
 
-    print(f"Successfully uploaded the encryption of {fileName} to Box")
+    print(f"\nSuccessfully uploaded the encryption of {fileName} to Box")
 
 
-def downloadFile(fileName):
-    oauth = OAuth2(
-        client_id='pu0jbhsntz9p4s4uimbppue1tw4pengw',
-        client_secret='fSwjHzheuKqV5qU2kap4Z70Fu5qCnhXX',
-    )
-
-    auth_url, csrf_token = oauth.get_authorization_url('https://app.box.com/box/callback')
-
-    # Redirect the user to the auth_url
-    print(f'Please visit the following URL to authorize your application: {auth_url}')
-
-    # Get the redirect URL that the user was redirected to after authorizing your application
-    redirect_url = input('Paste the redirect URL here: ')
-
-    # Parse the redirect URL to extract the authorization code
-    url_parts = urlparse(redirect_url)
-    query_params = parse_qs(url_parts.query)
-    auth_code = query_params['code'][0] 
-
-    access_token, refresh_token = oauth.authenticate(auth_code)
-
-    client = Client(oauth)
-
-    shared_folder = client.folder('202433136302')
-
-    file_list = client.folder('202433136302').get_items()
+def downloadFile(fileName, sharedFolder, client):
+    file_list = sharedFolder.get_items()
     file_id = None
     for item in file_list:
         if isinstance(item, boxsdk.object.file.File) and item.name == fileName:
@@ -94,27 +42,31 @@ def downloadFile(fileName):
         file_content = client.file(file_id).content()
         with open(f'encrypted_{fileName}', 'wb') as f:
             f.write(file_content)
-            print(f"Downloaded {fileName}")
+            print(f"\nDownloaded {fileName}")
     else:
-        print(f"File {fileName} not found in the shared folder.")
+        print(f"\nFile {fileName} not found in the shared folder.")
 
 
 def decryptFile(fileName, private_key):
     with open(fileName, "rb") as data_file:
         encrypted_data = data_file.read()
 
-    # Decrypt data
-    decrypted_data = private_key.decrypt(
-        encrypted_data,
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
-            label=None
+    try:
+        # Decrypt data
+        decrypted_data = private_key.decrypt(
+            encrypted_data,
+            padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None
+            )
         )
-    )
-
+    except ValueError:
+        print(f"\nError: User's private key does not match the public key used for the encryption of {fileName}\n")
+        return
+    
     # Save the decrypted file to disk
     with open(f'decrypted_{fileName}', 'wb') as f:
         f.write(decrypted_data)
     
-    print(f"Successfully decrypted the file {fileName}")
+    print(f"\nSuccessfully decrypted the file {fileName}")
